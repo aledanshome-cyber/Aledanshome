@@ -1,0 +1,17 @@
+{
+  "name": "aledans-webhook-server",
+  "version": "1.0.0",
+  "description": "Shopify → Supabase webhook server para Aledans Home",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "express": "^4.18.2"
+  }
+}
