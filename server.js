@@ -50,23 +50,47 @@ async function pushStockToShopify(sku, nombre, newQty) {
   if (!SHOPIFY_TOKEN) return { skipped: true, reason: 'No token yet' };
   try {
     let inventoryItemId = null;
+
+    // Buscar por SKU
     if (sku) {
       const r = await shopifyRequest('GET', `/variants.json?sku=${encodeURIComponent(sku)}&limit=1`);
+      console.log(`🔍 Búsqueda SKU "${sku}":`, JSON.stringify(r).substring(0, 200));
       inventoryItemId = r?.variants?.[0]?.inventory_item_id;
     }
+
+    // Buscar por nombre si no encontró por SKU
     if (!inventoryItemId) {
       const r = await shopifyRequest('GET', `/products.json?title=${encodeURIComponent(nombre)}&limit=1`);
+      console.log(`🔍 Búsqueda nombre "${nombre}":`, JSON.stringify(r).substring(0, 200));
       inventoryItemId = r?.products?.[0]?.variants?.[0]?.inventory_item_id;
     }
-    if (!inventoryItemId) return { skipped: true, reason: 'Not found in Shopify' };
+
+    if (!inventoryItemId) {
+      console.log(`❌ No encontrado en Shopify: SKU="${sku}" Nombre="${nombre}"`);
+      return { skipped: true, reason: 'Not found in Shopify' };
+    }
+
+    console.log(`📦 inventory_item_id: ${inventoryItemId}, location: ${SHOPIFY_LOCATION}, qty: ${newQty}`);
+
     const result = await shopifyRequest('POST', '/inventory_levels/set.json', {
-      location_id: parseInt(SHOPIFY_LOCATION),
+      location_id:       parseInt(SHOPIFY_LOCATION),
       inventory_item_id: inventoryItemId,
-      available: newQty
+      available:         parseInt(newQty)
     });
-    console.log(`🛒 Shopify actualizado: ${nombre} → ${newQty}`);
+
+    console.log(`📬 Respuesta Shopify:`, JSON.stringify(result).substring(0, 300));
+
+    if (result?.inventory_level?.available !== undefined) {
+      console.log(`✅ Shopify confirmó: ${nombre} = ${result.inventory_level.available}`);
+    } else if (result?.errors) {
+      console.log(`❌ Error Shopify: ${JSON.stringify(result.errors)}`);
+    }
+
     return result;
-  } catch(e) { return { error: e.message }; }
+  } catch(e) {
+    console.error('❌ Error pushStockToShopify:', e.message);
+    return { error: e.message };
+  }
 }
 
 // ── Health check ───────────────────────────────────────────
