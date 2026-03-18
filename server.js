@@ -171,11 +171,17 @@ app.post('/webhook/orders/cancelled', async (req, res) => {
 app.post('/sync/stock', async (req, res) => {
   const { prod_id, new_stock_online } = req.body;
   if (!prod_id) return res.status(400).json({ error: 'prod_id requerido' });
-  const { data: prods } = await sb.from('productos').select('id,nombre,sku,stock_online,canal').eq('id', prod_id).limit(1);
+  if (new_stock_online === undefined || new_stock_online === null)
+    return res.status(400).json({ error: 'new_stock_online requerido' });
+
+  const { data: prods } = await sb.from('productos').select('id,nombre,sku,canal').eq('id', prod_id).limit(1);
   if (!prods?.length) return res.status(404).json({ error: 'No encontrado' });
   const prod = prods[0];
-  const qty  = new_stock_online ?? prod.stock_online;
-  if (prod.canal === 'bazar') return res.json({ synced: false, reason: 'Solo bazar' });
+
+  if (prod.canal === 'bazar') return res.json({ synced: false, reason: 'Solo bazar — no va a Shopify' });
+
+  // Usar el valor exacto que envía la app (ya descontado)
+  const qty = parseInt(new_stock_online);
   const shopifyResult = await pushStockToShopify(prod.sku, prod.nombre, qty);
   console.log(`🔄 Sync→Shopify: ${prod.nombre} = ${qty}`);
   res.json({ synced: true, product: prod.nombre, new_qty: qty, shopify: shopifyResult });
